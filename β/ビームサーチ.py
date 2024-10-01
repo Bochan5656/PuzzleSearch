@@ -1,0 +1,211 @@
+import copy
+
+class Step:
+    def __init__(self, FirstField, X, Y):
+        self.field = FirstField
+        self.X = X
+        self.Y = Y
+        self.height = len(FirstField)
+        self.width = len(FirstField[0])
+        self.judge = [[0]*self.width for _ in range(self.height)]
+        self.comboN = 0
+        self.Route = [[X, Y]]
+        self.ElseDrop = 6
+        self.last_direction = None  # 最後に移動した方向
+
+    def __repr__(self):
+        return str(self.Route)
+
+    def operation(self, direction):
+        if self.last_direction is not None:
+            if direction == 0 and self.last_direction == 2:
+                return 0
+            if direction == 2 and self.last_direction == 0:
+                return 0
+            if direction == 1 and self.last_direction == 3:
+                return 0
+            if direction == 3 and self.last_direction == 1:
+                return 0
+
+        if direction == 0 and self.Y != 0:
+            hoge = self.field[self.Y][self.X]
+            self.field[self.Y][self.X] = self.field[self.Y-1][self.X]
+            self.field[self.Y-1][self.X] = hoge
+            self.Y -= 1
+            self.Route.append([self.X, self.Y])
+            self.last_direction = 0
+            return 1
+
+        if direction == 2 and self.Y != self.height - 1:
+            hoge = self.field[self.Y][self.X]
+            self.field[self.Y][self.X] = self.field[self.Y+1][self.X]
+            self.field[self.Y+1][self.X] = hoge
+            self.Y += 1
+            self.Route.append([self.X, self.Y])
+            self.last_direction = 2
+            return 1
+
+        if direction == 3 and self.X != 0:
+            hoge = self.field[self.Y][self.X]
+            self.field[self.Y][self.X] = self.field[self.Y][self.X-1]
+            self.field[self.Y][self.X-1] = hoge
+            self.X -= 1
+            self.Route.append([self.X, self.Y])
+            self.last_direction = 3
+            return 1
+
+        if direction == 1 and self.X != self.width - 1:
+            hoge = self.field[self.Y][self.X]
+            self.field[self.Y][self.X] = self.field[self.Y][self.X+1]
+            self.field[self.Y][self.X+1] = hoge
+            self.X += 1
+            self.Route.append([self.X, self.Y])
+            self.last_direction = 1
+            return 1
+
+        return 0
+
+    def disp(self):
+        for row in self.field:
+            print(row)
+
+    def combo(self):
+        self.n = 0
+        self.judge = [[0]*self.width for _ in range(self.height)]
+        for j in range(self.height):
+            for i in range(1, self.width-1):
+                if self.field[j][i] == self.field[j][i-1] and self.field[j][i] == self.field[j][i+1]:
+                    hoge = max(self.judge[j][i-1], self.judge[j][i], self.judge[j][i+1])
+                    if hoge != 0:
+                        self.judge[j][i-1] = hoge
+                        self.judge[j][i] = hoge
+                        self.judge[j][i+1] = hoge
+                    else:
+                        self.n += 1
+                        self.judge[j][i-1] = self.n
+                        self.judge[j][i] = self.n
+                        self.judge[j][i+1] = self.n
+
+        for j in range(1, self.height-1):
+            for i in range(self.width):
+                if self.field[j][i] == self.field[j-1][i] and self.field[j][i] == self.field[j+1][i]:
+                    hoge = max(self.judge[j-1][i], self.judge[j][i], self.judge[j+1][i])
+                    if hoge != 0:
+                        self.judge[j-1][i] = hoge
+                        self.judge[j][i] = hoge
+                        self.judge[j+1][i] = hoge
+                    else:
+                        self.n += 1
+                        self.judge[j-1][i] = self.n
+                        self.judge[j][i] = self.n
+                        self.judge[j+1][i] = self.n
+
+        self.comboN += self.n
+
+    def fall(self):
+        for j in range(self.height):
+            for i in range(self.width):
+                if self.judge[j][i] != 0:
+                    k = j
+                    while k > 0:
+                        self.field[k][i] = self.field[k-1][i]
+                        k -= 1
+                    self.field[0][i] = self.ElseDrop
+                    self.ElseDrop += 1
+
+# 初期フィールドの設定（例として4x3のフィールド）
+firstField = [
+    [0, 1, 2, 3],
+    [1, 2, 3, 0],
+    [2, 3, 0, 1]
+]
+
+print('初期配置')
+for i in firstField:
+    print(i)
+
+height = len(firstField)
+width = len(firstField[0])
+
+beam_width = 1000  # ビームサーチの幅
+max_depth = 10  # 最大の探索深度
+
+Allway = []
+NextStep = []  # 次のステップで動作させるインスタンスのインデックス
+
+for j in range(height):
+    for i in range(width):
+        Allway.append(Step(firstField, i, j))
+        Allway[-1].combo()
+        Allway[-1].fall()
+        NextStep.append((0 - Allway[-1].comboN, len(Allway) - 1))  # (優先度, インデックス)のタプルを保存
+
+# 動作させた場合を増やしていく
+for loop in range(max_depth):
+    if not NextStep:
+        break
+
+    NextStep = sorted(NextStep)[:beam_width]  # ビーム幅の制限
+    candidates = []
+
+    for priority, idx in NextStep:
+        for m in range(4):
+            new_step = copy.deepcopy(Allway[idx])
+            hoge = new_step.operation(m)
+            if hoge != 0:
+                new_step.combo()
+                new_step.fall()
+                candidates.append((0 - new_step.comboN, new_step))
+
+    NextStep = []
+    Allway = []
+
+    for priority, step in candidates:
+        Allway.append(step)
+        NextStep.append((priority, len(Allway) - 1))
+
+# 生成したインスタンスに対し、コンボ判定、落ちコンを計算
+for k in range(len(Allway)):
+    m = 0
+    while True:
+        Allway[k].combo()
+        if Allway[k].comboN == m:
+            break
+        m = Allway[k].comboN
+        Allway[k].fall()
+
+# 最良値を出力
+hogeMax = Allway[0].comboN
+maxIndex = 0
+for a in range(len(Allway)):
+    if hogeMax < Allway[a].comboN:
+        hogeMax = Allway[a].comboN
+        maxIndex = a
+
+print("最良インデックス:", maxIndex)
+print("最大コンボ数:", hogeMax)
+print("最良ルート:", Allway[maxIndex].Route)
+
+# 実際に最良ルートを使って初期配置から動かす
+current_field = copy.deepcopy(firstField)
+X, Y = Allway[maxIndex].Route[0]
+step = Step(current_field, X, Y)
+
+for direction in Allway[maxIndex].Route[1:]:
+    if step.X < direction[0]:
+        step.operation(1)
+    elif step.X > direction[0]:
+        step.operation(3)
+    elif step.Y < direction[1]:
+        step.operation(2)
+    elif step.Y > direction[1]:
+        step.operation(0)
+    step.disp()
+    print()
+
+# 最後にコンボ計算と落ちコンを表示
+step.combo()
+step.fall()
+print("最終的なフィールドの状態 (手動移動後):")
+step.disp()
+
